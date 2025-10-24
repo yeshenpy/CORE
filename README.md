@@ -4,5 +4,5 @@
 **CORE is the first open-source RL–based method for floorplanning, and also the first evolutionary reinforcement learning (ERL) approach in this domain.**
 
 TODO：
-- Update code
+- Update code (I will update this code soon, no later than November 15.)
 
