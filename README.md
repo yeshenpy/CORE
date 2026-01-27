@@ -1,5 +1,10 @@
 # CORE: Collaborative Optimization with Reinforcement Learning and Evolutionary Algorithm for Floorplanning
 
+Todo:
+I am checking the code and will update the code within 2 days, sorry for the delay (too busy for ICML 2026).
+I will also update a blog for this paper :)
+
+
 [![NeurIPS 2025](https://img.shields.io/badge/NeurIPS-2025-blue.svg)](https://openreview.net/forum?id=86IvZmY26S)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-green.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -179,3 +184,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Contact
 
 For questions or issues, please open an issue on GitHub or contact the authors.
+
