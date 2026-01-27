@@ -10,7 +10,7 @@ I will also update a blog for this paper :)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![State-of-the-Art](https://img.shields.io/badge/State--of--the--Art-Floorplanning-red.svg)](#results)
 
-🏆 **The best-performing open-source floorplanning algorithm to date**, achieving state-of-the-art results on MCNC and GSRC benchmarks.
+🏆 **The best-performing open-source learning-based floorplanning algorithm to date**, achieving state-of-the-art results on MCNC and GSRC benchmarks.
 
 > **CORE: Collaborative Optimization with Reinforcement Learning and Evolutionary Algorithm for Floorplanning**  
 > Pengyi Li, Shixiong Kai, Jianye Hao, Ruizhe Zhong, Hongyao Tang, Zhentao Tang, Mingxuan Yuan, Junchi Yan  
@@ -184,4 +184,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Contact
 
 For questions or issues, please open an issue on GitHub or contact the authors.
+
 
