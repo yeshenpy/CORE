@@ -11,6 +11,15 @@
 > Pengyi Li, Shixiong Kai, Jianye Hao, Ruizhe Zhong, Hongyao Tang, Zhentao Tang, Mingxuan Yuan, Junchi Yan  
 > *NeurIPS 2025*
 
+To the best of our knowledge, this is the **first open-source RL-based floorplanning algorithm**, and also the **first open-source floorplanning environment with a C++ backend directly callable from Python** (via `pybind11`).
+
+> **⭐ Why this repo matters**
+>
+> - **Open-source RL floorplanning** (to the best of our knowledge)
+> - **Python-callable C++ backend environment** (B\*-Tree via `pybind11`)
+
+
+
 ## 🎯 Highlights
 
 - 🥇 **Strong benchmark performance**: Reports **12.9% improvement in wirelength** on standard benchmarks (see paper)
