@@ -1,16 +1,11 @@
 # CORE: Collaborative Optimization with Reinforcement Learning and Evolutionary Algorithm for Floorplanning
 
-Todo:
-I am checking the code and will update the code within 2 days, sorry for the delay (too busy for ICML 2026).
-I will also update a blog for this paper :)  Code will be updated today!!!!!!!!
-
-
 [![NeurIPS 2025](https://img.shields.io/badge/NeurIPS-2025-blue.svg)](https://openreview.net/forum?id=86IvZmY26S)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-green.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![State-of-the-Art](https://img.shields.io/badge/State--of--the--Art-Floorplanning-red.svg)](#results)
+[![License: Non-Commercial](https://img.shields.io/badge/License-Non--Commercial-red.svg)](LICENSE)
+[![Benchmarks](https://img.shields.io/badge/Benchmarks-MCNC%20%2B%20GSRC-orange.svg)](#benchmarks)
 
-🏆 **The best-performing open-source learning-based floorplanning algorithm to date**, achieving state-of-the-art results on MCNC and GSRC benchmarks.
+**EA+RL hybrid framework** for B\*-Tree floorplanning, reproducing the approach described in the NeurIPS 2025 paper and reporting strong results on MCNC and GSRC benchmarks.
 
 > **CORE: Collaborative Optimization with Reinforcement Learning and Evolutionary Algorithm for Floorplanning**  
 > Pengyi Li, Shixiong Kai, Jianye Hao, Ruizhe Zhong, Hongyao Tang, Zhentao Tang, Mingxuan Yuan, Junchi Yan  
@@ -18,7 +13,7 @@ I will also update a blog for this paper :)  Code will be updated today!!!!!!!!
 
 ## 🎯 Highlights
 
-- 🥇 **State-of-the-Art Performance**: Achieves **12.9% improvement in wirelength** over previous best methods
+- 🥇 **Strong benchmark performance**: Reports **12.9% improvement in wirelength** on standard benchmarks (see paper)
 - 🚀 **First ERL Algorithm for Floorplanning**: Pioneering evolutionary reinforcement learning approach
 - ⚡ **Efficient Optimization**: Synergizes Evolutionary Algorithms (EAs) and Reinforcement Learning (RL)
 - 📊 **Comprehensive Benchmarks**: Evaluated on MCNC and GSRC standard benchmarks
@@ -47,20 +42,22 @@ CORE/
 │   └── pybind.cpp          # Python bindings
 ├── input_pa2/              # Benchmark circuits (MCNC & GSRC)
 ├── utils/                  # Utility functions
-├── CORE.py                # Main training script (parallel, recommended) ⭐
-├── RL.py                   # RL training script (single process)
+├── CORE.py                # Main entrypoint: EA+RL hybrid framework ⭐
 ├── SA.py                   # Simulated Annealing baseline
+├── EA_with_PPO.py          # Experimental EA variant (not the main entrypoint)
+├── PPO_utils.py            # PPO helpers (masks, data conversion, training)
 ├── Net.py                  # Neural network architectures (GNN + Transformer)
 ├── Makefile               # Build configuration
 ├── environment.yaml       # Conda environment specification
+├── new_run.sh              # Example batch script for HPWL-focused runs
 └── README.md              # This file
 ```
 
 ## Requirements
 
 - Python 3.8
-- PyTorch 1.4+ with CUDA support
-- PyTorch Geometric 2.4+
+- PyTorch (CUDA recommended)
+- PyTorch Geometric
 - pybind11
 - g++ (for compiling C++ code)
 
@@ -73,6 +70,8 @@ conda env create -f environment.yaml
 conda activate GPU_EDA
 ```
 
+Note: `environment.yaml` is provided as a reference environment snapshot and may need adjustments on your machine (OS/CUDA/PyTorch/PyG versions). If the environment creation fails, please create a clean Python environment first, then install **PyTorch** and **PyTorch Geometric** with mutually compatible versions for your system.
+
 ### 2. Compile C++ Code
 
 The B\*-Tree floorplanner is implemented in C++ with Python bindings:
@@ -81,7 +80,9 @@ The B\*-Tree floorplanner is implemented in C++ with Python bindings:
 make
 ```
 
-This generates the `tree` Python module (`tree.cpython-*.so`) that provides the B\*-Tree floorplanner functionality.
+This generates the `tree` Python module (Linux: `tree.cpython-*.so`, Windows: `tree*.pyd`) that provides the B\*-Tree floorplanner functionality.
+
+> Note on platform support: the provided `Makefile` is written for a typical Linux toolchain (`g++`, `python3-config`). If you are on Windows, we recommend using WSL2 (Ubuntu) to build the `tree` module.
 
 ### 3. Verify Installation
 
@@ -93,48 +94,48 @@ python -c "import tree; print('CORE installed successfully!')"
 
 ### Training with CORE (Recommended)
 
+
+
+You can also launch a batch of HPWL-focused runs (MCNC + GSRC) with:
+
 ```bash
-python CORE.py --circuit="n300" \
-               --one_epsodic_length=300 \
-               --device=0 \
-               --L_weight=1e-4 \
-               --A_weight=0.0 \
-               --O_weight=0.0 \
-               --gamma=0.999 \
-               --clip-vloss \
-               --add_res \
-               --num_envs=15 \
-               --clip-coef=0.1 \
-               --ent_coef=0.01 \
-               --seed=1
+bash new_run.sh
 ```
+
+This script uses `nohup` and backgrounds multiple runs, so it is intended for Linux servers/workstations.
 
 ### Training with Simulated Annealing (Baseline)
 
 ```bash
 python SA.py --circuit="n300" \
-             --weight_hpwl=0.0 \
-             --weight_area=0.5 \
+             --weight_hpwl=1.0 \
+             --weight_area=0.0 \
              --gap_iter_update_temperature=1000
 ```
 
 ### Key Arguments
 
-| Argument | Description | Default |
-|----------|-------------|---------|
-| `--circuit` | Circuit name (n10, n30, n50, n100, n200, n300, ami33, ami49, etc.) | n300 |
-| `--one_epsodic_length` | Episode length for RL | 100 |
-| `--num_envs` | Number of parallel environments | 10 |
-| `--device` | CUDA device ID (-1 for CPU) | 1 |
-| `--L_weight` | Weight for HPWL (wirelength) | 1e-6 |
-| `--A_weight` | Weight for area | 1e-6 |
-| `--O_weight` | Weight for outbound penalty | 1e-6 |
-| `--gamma` | Discount factor | 0.99 |
-| `--batch_size` | Batch size for training | 128 |
-| `--ent_coef` | Entropy coefficient | 0.01 |
-| `--seed` | Random seed | 10 |
-| `--add_res` | Add residual connections | False |
-| `--clip-vloss` | Clip value loss | False |
+For the full list, run `python CORE.py --help` (or `SA.py --help`).
+
+| Argument | Description | Default    |
+|----------|-------------|------------|
+| `--circuit` | Circuit name (n10, n30, n50, n100, n200, n300, ami33, ami49, etc.) | n300       |
+| `--one_epsodic_length` | Episode length (number of B\*-Tree insertion steps) | 300        |
+| `--device` | GPU id (`-1` for CPU). Also controls `CUDA_VISIBLE_DEVICES`. | 0          |
+| `--ppo_pop_size` | Number of PPO worker processes (parallel rollouts) | 6          |
+| `--pop_size` | EA population size | 100        |
+| `--num_cluster` | KMeans clusters for diversified evolution | 4          |
+| `--num_best` | Elites kept per cluster | 2          |
+| `--EA_iter` | EA inner iterations per epoch | 18         |
+| `--total_epoch` | Total outer epochs | 10000      |
+| `--L_weight` | Reward weight for HPWL term | defalut    |
+| `--A_weight` | Reward weight for area ratio term | 0.0 or 5.0 |
+| `--O_weight` | Reward weight for outbound penalty term | 0.0        |
+| `--gamma` | PPO discount factor | 0.999      |
+| `--batch_size` | PPO batch size | defalut    |
+| `--ent_coef` | PPO entropy coefficient | defalut    |
+| `--seed` | Random seed | 1          |
+| `--clip-vloss` | Enable PPO value-loss clipping | clip-vloss      |
 
 ## Benchmarks
 
@@ -155,7 +156,7 @@ CORE achieves **state-of-the-art performance** on standard floorplanning benchma
 
 | Method | Wirelength Improvement |
 |--------|----------------------|
-| Previous SOTA | Baseline |
+| Previous best (reported in paper) | Baseline |
 | **CORE (Ours)** | **-12.9%** ⬇️ |
 
 > CORE represents the **first evolutionary reinforcement learning (ERL) algorithm for floorplanning**, surpassing all existing RL-based and traditional methods.
@@ -179,11 +180,20 @@ The B\*-Tree implementation is adapted from [B-Star-Tree](https://github.com/Ash
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under a **Non-Commercial License with Commercial Use Restriction**.
+
+**For Non-Commercial Use:**
+- ✅ You are free to use, copy, modify, merge, publish, and distribute this work
+- ✅ You are free to prepare derivative works
+- ✅ Subject to attribution and license inclusion requirements
+
+**For Commercial Use:**
+- ⚠️ **Commercial use is STRICTLY PROHIBITED without prior written permission**
+- 📧 **You MUST contact the authors to obtain a commercial license**
+- 💼 Please open an issue on GitHub or contact the authors for commercial licensing inquiries
+
+See the [LICENSE](LICENSE) file for full details.
 
 ## Contact
 
 For questions or issues, please open an issue on GitHub or contact the authors.
-
-
-

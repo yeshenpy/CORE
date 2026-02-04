@@ -30,6 +30,7 @@ PYBIND11_MODULE(tree, m){
         .def_readwrite("left", &Block::left)
         .def_readwrite("right", &Block::right)
         .def_readwrite("on_FP", &Block::on_FP)
+        .def_readwrite("order", &Block::order)
     ;
 
 
@@ -49,8 +50,6 @@ PYBIND11_MODULE(tree, m){
         .def_readwrite("cell_list", &Net::cell_list)
     ;
 
-
-
     
     py::class_<Floorplanner>(m, "Floorplanner")
         .def(py::init<int, double, double, double>())
@@ -58,13 +57,21 @@ PYBIND11_MODULE(tree, m){
         .def("parse_net", &Floorplanner::parse_net)
         .def("initialize_node_list", &Floorplanner::initialize_node_list)
         .def("initializeFrom", &Floorplanner::initializeFrom)
-        .def("getNodeInfoMap", &Floorplanner::getNodeInfoMap)
-        .def("constructConnectionMatrix", &Floorplanner::constructConnectionMatrix)
+        .def("initializeFrom_other_FP", &Floorplanner::initializeFrom_other_FP)
+        .def("getBlkInfoMap", &Floorplanner::getBlkInfoMap)
+        .def("getTmlInfoMap", &Floorplanner::getTmlInfoMap)
 
+        .def("constructConnectionMatrix", &Floorplanner::constructConnectionMatrix)
+        .def("write_report_string", &Floorplanner::write_report_string)
+        .def("Graph_feature", &Floorplanner::Graph_feature)
+        .def("get_place_sequence", &Floorplanner::get_place_sequence)
+        .def("SA_HPWL", &Floorplanner::SA_HPWL)
         .def("HPWL", &Floorplanner::HPWL)
         .def("calculate_area", &Floorplanner::calculate_area)
         .def("calculate_cost", &Floorplanner::calculate_cost)
         .def("calculate_outbound", &Floorplanner::calculate_outbound)
+
+        .def("initializeFrom_info", &Floorplanner::initializeFrom_info)
 
 
         .def("Insert_to_target_left_right_rotate",  &Floorplanner::Insert_to_target_left_right_rotate)
@@ -81,10 +88,9 @@ PYBIND11_MODULE(tree, m){
 
         .def("edge_info", &Floorplanner::edge_info)
         .def("edge_attr", &Floorplanner::edge_attr)
-
+        .def("DeepCopy", &Floorplanner::DeepCopy)
 
         .def("get_all_nodes_coordinate", &Floorplanner::get_all_nodes_coordinate)
-        .def("write_report_string",  &Floorplanner::write_report_string)
         .def("write_report", &Floorplanner::write_report)
         .def("summary", &Floorplanner::summary)
         .def("get_blk_feat", &Floorplanner::get_blk_feat)

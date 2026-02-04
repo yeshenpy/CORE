@@ -1,8 +1,19 @@
+/*
+ * CORE: Collaborative Optimization with Reinforcement Learning and Evolutionary Algorithm for Floorplanning
+ * Paper: https://openreview.net/forum?id=86IvZmY26S
+ * Authors: Pengyi Li, Shixiong Kai, Jianye Hao, Ruizhe Zhong, Hongyao Tang,
+ *          Zhentao Tang, Mingxuan Yuan, Junchi Yan
+ * License: Non-Commercial License (see LICENSE). Commercial use requires permission.
+ * Signature: CORE Authors (NeurIPS 2025)
+ */
+
 #include "floorplanner.h"
 #include <random>
-#include <iostream>
-#include <sstream>
 #include <cmath>
+#include <chrono>
+#include <sstream>
+#include <cstdlib>
+#include <stdexcept>
 using namespace std;
 
 
@@ -33,7 +44,24 @@ void  Floorplanner::get_blk_left_and_right(){
 }
 
 
-std::map<std::string, std::vector<float>> Floorplanner::getNodeInfoMap() {
+
+vector<float> Floorplanner::Graph_feature() {
+
+    vector<float> graph_feature;
+
+    for (const auto& entry : name2blk) {
+        graph_feature.push_back(double(entry.second->_x)/new_chip_w);
+        graph_feature.push_back(double(entry.second->_y)/new_chip_h);
+    }
+
+    return graph_feature;
+}
+
+
+
+
+
+std::map<std::string, std::vector<float>> Floorplanner::getBlkInfoMap() {
     //cout<< 5 << endl;
     get_blk_left_and_right();
     //cout<< 6 << endl;
@@ -88,7 +116,31 @@ std::map<std::string, std::vector<float>> Floorplanner::getNodeInfoMap() {
         nodeInfoMap[name] = nodeInfo;
     }
 //    cout<< 20  << endl;
-    // 处理 name2tml
+//    // 处理 name2tml
+//    for (const auto& entry : name2tml) {
+//        std::string name = entry.first;
+//        Terminal* t_temp = entry.second;
+//        std::vector<float> nodeInfo(10, 0);
+//        nodeInfo[0] =  static_cast<double>(t_temp->_x)/new_chip_w;  // 宽度
+//        nodeInfo[1] =  static_cast<double>(t_temp->_y)/new_chip_h;  // 高度
+//        nodeInfo[6] =  1.0;
+//        // 设置是否为 Terminal 的标记
+////        nodeInfo[6] = 0;         // 标记类型，1为节点，0为 tml
+////        nodeInfo[7] = 1;         // 标记类型，1为节点，0为 tml
+//        nodeInfoMap[name] = nodeInfo;
+//    }
+
+    return nodeInfoMap;
+}
+
+
+
+std::map<std::string, std::vector<float>> Floorplanner::getTmlInfoMap() {
+    //cout<< 5 << endl;
+    //get_blk_left_and_right();
+    //cout<< 6 << endl;
+    std::map<std::string, std::vector<float>> nodeInfoMap;
+    // 处理 name2blk
     for (const auto& entry : name2tml) {
         std::string name = entry.first;
         Terminal* t_temp = entry.second;
@@ -298,13 +350,106 @@ vector<vector<vector<float>>> Floorplanner::constructConnectionMatrix() {
 
 
 
+void Floorplanner::initializeFrom_info(map<string, vector<int>> other_name2blk,   map<string, vector<string>> other_nodeinfomap, vector<string> otherroots,   vector<int> otherx_max_each_layer,   vector<int> othery_max_each_layer){
+
+
+        for (const auto& pair : other_name2blk) {
+            const string& name = pair.first;
+            const vector<int>& vec = pair.second;
+            name2blk[name]->_x = vec[0];
+            name2blk[name]->_y = vec[1];
+            name2blk[name]->_w = vec[2];
+            name2blk[name]->_h = vec[3];
+            name2blk[name]->order = vec[4];
+            name2blk[name]->layer = vec[5];
+         }
+
+
+
+//        for(auto o :  other_name2blk){
+//
+//            string name =  o.first;
+//  //          cout<< "!!!!!  target name " <<  name<<    " our name "  <<name2blk[name]->_name  << endl;
+//            name2blk[name]->_x = o.second->_x;
+//            name2blk[name]->_y = o.second->_y;
+//            name2blk[name]->_w = o.second->_w;
+//            name2blk[name]->_h = o.second->_h;
+//            name2blk[name]->order = o.second->order;
+//            name2blk[name]->block_type = o.second->block_type;
+//            name2blk[name]->layer = o.second->layer;
+//            name2blk[name]->ratio_min = o.second->ratio_min;
+//            name2blk[name]->ratio_max = o.second->ratio_max;
+//        }
+
+
+
+//        map<string, Node*> otherNodeMap;
+//        for (const auto& otherNode : other_node_list) {
+//            otherNodeMap[otherNode->_name] = otherNode;
+//        }
+
+        map<string, Node*> ourNodeMap;
+        for (const auto& ourNode : node_list) {
+            ourNodeMap[ourNode->_name] = ourNode;
+        }
+
+        if (node_list.size() == 0){
+            cout << "!!!!!! fail node_list size == 0 " << endl;
+            std::exit(EXIT_FAILURE);
+        }
+
+        // 更新 current 中的节点列表，确保 _prev、_right、_left 的映射关系相同
+        for (auto& currentNode : node_list) {
+
+            string current_name = currentNode->_name;
+
+            const vector<string>&  string_vector = other_nodeinfomap[current_name];
+
+//            cout <<"!!!!!!!!!?????????????" << current_name <<   " __ target " << otherNode->_name <<endl;
+
+            if (string_vector[0] == "")
+            {
+                currentNode->_prev = nullptr;
+            }
+            else {
+                currentNode->_prev = ourNodeMap[string_vector[0]];
+            }
+            if (string_vector[1] == "")
+            {
+                currentNode->_right = nullptr;
+            }
+            else {
+                currentNode->_right = ourNodeMap[string_vector[1]];
+            }
+
+            if (string_vector[2] == "")
+            {
+                currentNode->_left = nullptr;
+            }
+            else {
+                currentNode->_left = ourNodeMap[string_vector[2]];
+            }
+        }
+
+       // cout << "?????" << roots.size()  <<  node_list.size()<< endl;
+        if  (roots.size() == 0)
+        {
+                roots[0] = ourNodeMap[otherroots[0]];
+        }
+        else{
+            for (size_t i = 0; i < roots.size(); ++i) {
+
+              //   cout << "!!!" << otherroots[i] << endl;
+                 roots[i] = ourNodeMap[otherroots[i]];
+            }
+        }
+
+        x_max_each_layer = otherx_max_each_layer;
+        y_max_each_layer = othery_max_each_layer;
+}
+
 void Floorplanner::initializeFrom(const Floorplanner& other){
 
-        // Copy primitive types
-        gap_iter_update_temperature = other.gap_iter_update_temperature;
-        weight_hpwl = other.weight_hpwl;
-        weight_area = other.weight_area;
-        weight_feedthrough = other.weight_feedthrough;
 
         for(auto o :  other.name2blk){
 
@@ -333,7 +478,6 @@ void Floorplanner::initializeFrom(const Floorplanner& other){
 
         // 更新 current 中的节点列表，确保 _prev、_right、_left 的映射关系相同
         for (auto& currentNode : node_list) {
-
 
             string current_name = currentNode->_name;
 
@@ -364,7 +508,6 @@ void Floorplanner::initializeFrom(const Floorplanner& other){
             }
 
         }
-
 
         for (size_t i = 0; i < roots.size(); ++i) {
 
@@ -437,31 +580,59 @@ void Floorplanner::parse_blk(const string& input_path){
         name2index[name] = i;
         total_area = total_area + double(w)*double(h);
 	}
-    new_chip_w = pow(double(total_area)/0.9, 0.5);
-    new_chip_h = pow(double(total_area)/0.9, 0.5);
+    new_chip_w = pow(double(total_area)*1.1, 0.5);
+    new_chip_h = pow(double(total_area)*1.1, 0.5);
+    
+    
+      
+  double max_w = 0.0;
+  double max_h = 0.0;
 
-    double x_ratio = new_chip_w / double(chip_w);
-    double y_ratio = new_chip_h / double(chip_h);
-
-    cout << "Resize " <<  total_area << " new_chip_w " <<new_chip_w << " new_chip_h " <<new_chip_h  << "  ratio " << x_ratio <<"  "<<  y_ratio << endl;
-    // cout << "Initialize name2blk finished" << endl;
-
+    
+  
 	for(int i=0; i<num_tml; ++i){
 		string name;
 		double x;
 		double y;
 		input >> str;	
-        name=str;
+    name=str;
 		input >> str;
 		input >> str;	
-        x= double(stod(str))*x_ratio;
+    x= double(stod(str));
 		input >> str;  
-        y= double(stod(str))*y_ratio;
-        name2tml[name] = new Terminal(name, x, y);
+    y= double(stod(str));
+    name2tml[name] = new Terminal(name, x, y);
 
-        name2index[name] = num_blk + i;
-	    cout << name <<" " << x << " " << y << endl;
+    name2index[name] = num_blk + i;
+    cout << name <<" " << x << " " << y << endl;
+         
+    if (x > max_w)
+    {
+        max_w = x;
+    }
+    if (y > max_h)
+    {
+        max_h = y;
+    }         
+
 	}
+    double x_ratio = new_chip_w / double(max_w);
+    double y_ratio = new_chip_h / double(max_h);
+
+    cout << "Resize " <<  total_area << " new_chip_w " <<new_chip_w << " new_chip_h " <<new_chip_h  << "  ratio " << x_ratio <<"  "<<  y_ratio << endl;
+    // cout << "Initialize name2blk finished" << endl;
+  
+ 
+ 
+   for (const auto& entry : name2tml) {
+      std::string name = entry.first;
+      Terminal* t_temp = entry.second;
+      t_temp->_x = t_temp->_x*x_ratio;  
+      t_temp->_y = t_temp->_y*y_ratio;  
+    }
+ 
+  
+ 
     // cout << "Initialize name2tml finished" << endl;
 
 
@@ -571,7 +742,7 @@ void Floorplanner::initialize_node_list(){
             max_edge = pair.second;
         }
     }
-    cout << "Max count "<< max_edge << endl;
+    // cout << "Max count "<< max_edge << endl;
 
 
     // cout << "Initialize node_list finished" << endl;
@@ -592,7 +763,7 @@ void Floorplanner::partition(){
 
 
 
-void Floorplanner::reset(){
+void Floorplanner::reset(int seed){
     // init partition, assign random layer index for each tml and blk
     partition();
 
@@ -609,15 +780,22 @@ void Floorplanner::reset(){
     }
 
     // shuffle layer2nodes
-    std::random_device rd;
+    //std::random_device rd;
 
     // 使用 std::default_random_engine 引擎和生成的随机种子
-    std::default_random_engine rng(rd());
+    std::default_random_engine rng(seed);
 
     // 使用 std::shuffle 打乱 node_list 中的数据
         // 对每一层的节点进行随机排序
     for (int layer = 0; layer < num_layer; ++layer) {
         std::shuffle(layer2nodes[layer].begin(), layer2nodes[layer].end(), rng);
+
+        std::cout << "Shuffled order for layer " << layer << ": ";
+        for (const auto& node : layer2nodes[layer]) {
+            std::cout << node->_name << " ";
+        }
+        std::cout << std::endl;
+
     }
 
     // construct init tree for each layer
@@ -636,25 +814,32 @@ void Floorplanner::reset(){
 
 
 
+void Floorplanner::initializeFrom_other_FP(const Floorplanner& other){
+
+     name2tml = other.name2tml;
+     node_list = other.node_list;
+     name2Node = other.name2Node;
+     name2blk = other.name2blk;
+     roots = other.roots;
+
+}
+
 
 void Floorplanner::reset_wo_init_tree(){
-    // reset the env, but do not construct the init B*tree since we will use RL to construct this B*tree
 
-    // assign each tml to layer 0
     for(auto tml:name2tml){
         tml.second->layer = 0;
     }
+    for (auto ptr : roots) {
+        delete ptr; // 删除指针指向的对象
+    }
 
-    // assign prev, left, right of each node to nullptr
-//    for(int i=0; i<num_blk; ++i){
-//        node_list[i]->_left = nullptr;
-//        node_list[i]->_right = nullptr;
-//        node_list[i]->_prev = nullptr;
-//
-//    }
+    // 清空 roots 向量
+    roots.clear();
+
+    roots = vector<Node*>(num_layer, nullptr);
     node_list.clear();
     name2Node.clear();
-    // set coordinates to 0
     for(auto b:name2blk){
         b.second->_x = 0;
         b.second->_y = 0;
@@ -707,6 +892,50 @@ int Floorplanner::coordinate(Node* node, int order){
     } 
 
     return order;
+}
+
+double Floorplanner::SA_HPWL() {
+    double totalLength = 0;
+    for(uint i=0;  i<net_list.size(); ++i) {
+        double minx = 2000000000, rightx = 0;
+        double miny = 2000000000, upy = 0;
+        int num = 0;
+        for(uint j=0; j<net_list[i]->cell_list.size(); j++) {
+            string name=net_list[i]->cell_list[j];
+            // this is a block
+            if (name2blk.count(name)) {
+                Block* curblock = name2blk[name];
+                double macroX = double(curblock->_x) + double(curblock->_w)/double(2);
+                double macroY = double(curblock->_y) + double(curblock->_h)/double(2);
+                minx = min(minx,macroX);
+                rightx = max(rightx,macroX);
+                miny = min(miny,macroY);
+                upy = max(upy,macroY);
+                num = num +1;
+            }
+            // this is a terminal
+            else if(name2tml.count(name)) {
+                Terminal* curTerminal = name2tml[name];
+                double terminalX = curTerminal->_x;
+                double terminalY = curTerminal->_y;
+                minx = min(minx,terminalX);
+                rightx = max(rightx,terminalX);
+                miny = min(miny,terminalY);
+                upy = max(upy,terminalY);
+                num = num +1;
+            }
+            // error
+            else{
+                string error_msg = "In Floorplanner::HPWL(), cell " + name + " is not matched!\n" ;
+                cout << error_msg;
+                throw error_msg;
+            }
+        }
+
+        totalLength += (rightx-minx) + (upy-miny);
+
+    }
+    return totalLength;
 }
 
 
@@ -764,24 +993,17 @@ double Floorplanner::calculate_outbound(){
 
 
 double Floorplanner::calculate_cost(){
-    double x_error = max( double(get_x_max() -chip_w), 0.0);
-    double y_error = max( double(get_y_max() -chip_h), 0.0);
-    if(x_error+y_error==0){
-        double area = calculate_area();
-        double hpwl = HPWL();
-        double feedthrough = calculate_feedthrough();
-        
-        // double alpha = 0.5;
-        // return -(chip_w*chip_h)*5 / ( 0.5*area + (1-alpha)*hpwl  );
-        return -(chip_w*chip_h)*5 / ( weight_area*area + weight_hpwl*hpwl + weight_feedthrough*feedthrough  );
-        // return -1e8 / ( hpwl  );
-        // return -1e8 / ( feedthrough  );
-        // return -1e8 / ( area + 1e1*hpwl +  1e3*feedthrough );
-        // return -1e8 / ( area + 1e1*hpwl );
-    }
-    else {
-        return (x_error+y_error)*10;
-    }
+//    double x_error = max( double(get_x_max() - new_chip_w), 0.0);
+//    double y_error = max( double(get_y_max() - new_chip_h), 0.0);
+//    if(x_error+y_error==0){
+    double area = calculate_area();
+    double hpwl = SA_HPWL();
+    double feedthrough = calculate_feedthrough();
+    return -(chip_w*chip_h)*5 / ( weight_area*area + weight_hpwl*hpwl + weight_feedthrough*feedthrough  );
+//    }
+//    else {
+//        return (x_error+y_error)*10;
+//    }
 }
 
 double Floorplanner::calculate_area(){
@@ -830,9 +1052,75 @@ double Floorplanner::updcontour(Node* node){
 	return y1;
 }
 
+using MyTuple = std::tuple<std::string, std::string, int, double, double>;
+
+std::list<std::tuple<std::string, std::string, int, double, double>> Floorplanner::get_place_sequence(){
+
+    std::list<MyTuple> dataList;
+
+    map<int, string> orderToName;
+    for (const auto& entry : name2blk) {
+        orderToName[entry.second->order] = entry.first;
+    }
+
+    map<string, const Node*> nameToNodeMap;
+    for (const auto& entry : node_list) {
+        nameToNodeMap[entry->_name] = entry;
+    }
+    int temp_index = 0;
+    for (const auto& entry : orderToName) {
+        const std::string& blockName = entry.second;
+
+        // 使用 nameToNodeMap 查找对应的 Node
+        const Node* node = nameToNodeMap.at(blockName);
+
+        if (temp_index == 0 ){
+
+            dataList.push_back(std::make_tuple(node->_name, "None", 0, name2blk[roots[0]->_name]->_w, name2blk[roots[0]->_name]->_h));
+        }else{
+            if (node == node->_prev->_left)
+            {
+                dataList.push_back(std::make_tuple(node->_name, node->_prev->_name, 1, name2blk[node->_name]->_w, name2blk[node->_name]->_h));
+            }else{
+
+                dataList.push_back(std::make_tuple(node->_name, node->_prev->_name, 2, name2blk[node->_name]->_w, name2blk[node->_name]->_h));
+            }
+        }
+        temp_index = temp_index+1;
+        // 在这里使用 node
+        // node 现在是按照 order 从小到大的顺序
+    }
 
 
-
+    return dataList;
+  }
+//    std::list<MyTuple> dataList;
+//
+//    std::stack<const Node*> nodeStack;
+//    nodeStack.push(roots[0]);
+//
+//
+//    dataList.push_back(std::make_tuple(roots[0]->_name, "None", 0, name2blk[roots[0]->_name]->_w, name2blk[roots[0]->_name]->_h));
+//
+//
+//    while (!nodeStack.empty()) {
+//        const Node* current = nodeStack.top();
+//        nodeStack.pop();
+//
+//        // 处理当前节点
+//        // 将右孩子先入栈，因为栈是先进后出的数据结构
+//        // 将左孩子后入栈
+//        if (current->_left != nullptr) {
+//            nodeStack.push(current->_left);
+//            dataList.push_back(std::make_tuple(current->_left->_name, current->_name, 1, name2blk[current->_left->_name]->_w, name2blk[current->_left->_name]->_h));
+//        }
+//        if (current->_right != nullptr) {
+//            nodeStack.push(current->_right);
+//            dataList.push_back(std::make_tuple(current->_right->_name, current->_name, 2, name2blk[current->_right->_name]->_w, name2blk[current->_right->_name]->_h));
+//        }
+//    }
+//    return dataList;
+//}
 
 
 void Floorplanner::Insert_to_target_left_right_rotate(int step, string insert_name, string target_name, int left_or_right_rotate){
@@ -846,9 +1134,14 @@ void Floorplanner::Insert_to_target_left_right_rotate(int step, string insert_na
     if(step==0)
     {
         node_list.push_back(insert_node);
-
+       // cout << "add the first ????" << endl;
         roots[0] = node_list[0];
+       // cout << 00000000000 <<  roots[0]->_name <<  endl;
+//        for(auto root:roots){
+//            cout << 3.1 <<  root->_name <<  endl;
+//        }
         name2Node[insert_name] = insert_node;
+
     }else{
 
         auto target_blk = name2blk[target_name];
@@ -957,8 +1250,7 @@ tuple<int, int, int, int, Node*, Node*> Floorplanner::RL_delandins(int del, int 
         {
             node_list[ins]->_left = node_list[del];
         }else {
-            cout<<"Error in left, left is not 0."<<endl;
-            assert(1==2);
+            throw std::runtime_error("RL_delandins: insert to left requested but left_or_right != 0");
         }
 
     }
@@ -968,8 +1260,7 @@ tuple<int, int, int, int, Node*, Node*> Floorplanner::RL_delandins(int del, int 
             node_list[ins]->_right = node_list[del];
         }
         else {
-             cout<<"Error in right, right is not 1."<<endl;
-            assert(1==2);
+            throw std::runtime_error("RL_delandins: insert to right requested but left_or_right != 1");
         }
 
     }
@@ -1130,54 +1421,32 @@ void Floorplanner::rotate(int node_idx){
 }
 
 void Floorplanner::get_all_nodes_coordinate(){
-    for(auto root:roots){
 
-//        cout << 3.1 <<  root->_name <<  endl;
+    //cout << "???????????" <<  endl;
+    for(auto root:roots){
+        //cout<< "1581615" <<endl;
+        if(root == nullptr) {
+        cout<< root << " root null" <<endl;
+        }
+        else{
+        //cout << 3.1 <<  root->_name <<  endl;
         int layer_index = name2blk[root->_name]->layer;
         x_max_each_layer[layer_index] = 0;
         y_max_each_layer[layer_index] = 0;
-//        cout << 3.2 << endl;
+       // cout << 3.2 << endl;
         contour_lines[layer_index].clear();
-//        cout << 3.3 << endl;
+       // cout << 3.3 << endl;
         coordinate(root);
+        }
     }
 }
-//void Floorplanner::write_report(double totaltime,const string& output_path){
-void Floorplanner::write_report(double totaltime,const string& output_path){
-    fstream output;
-    output.open(output_path, ios::out);
- //   cout << 2.1 << endl;
-    get_all_nodes_coordinate();
- //   cout << 2.2 << endl;
-    output << fixed << "wirelength = " << (double)HPWL() << endl;
-    output << fixed << "area = " << (double)calculate_area() << endl;
-    output << fixed << "feedthrough = " << (double)calculate_feedthrough() << endl;
-    output << fixed << "x_max = " << (double)get_x_max() << endl;
-    output << fixed << "y_max = " << (double)get_y_max() << endl;
-    output << fixed << "cost = " << (double)calculate_cost() << endl;
-    output << fixed << "totaltime = " << (double)totaltime << endl;
-  //  cout << 2.3 << endl;
-    for(size_t  i=0; i<node_list.size(); i++){
-        auto node = node_list[i];
-        auto block = name2blk[node->_name];
-
-        output<<node->_name<<" "
-            <<name2blk[node->_name]->_x<<" "<<name2blk[node->_name]->_y<<" "
-            <<name2blk[node->_name]->_x+block->_w<<" "<<name2blk[node->_name]->_y+block->_h << " "
-            <<name2blk[node->_name]->layer << " "
-            <<name2blk[node->_name]->order << " "
-            <<endl;
-    }
-    output.close();
-}
-
 
 string Floorplanner::write_report_string(double totaltime){
     std::ostringstream output;
  //   cout << 2.1 << endl;
     get_all_nodes_coordinate();
  //   cout << 2.2 << endl;
-    output << fixed << "wirelength = " << (double)HPWL() << endl;
+    output << fixed << "wirelength = " << (double)SA_HPWL() << endl;
     output << fixed << "area = " << (double)calculate_area() << endl;
     output << fixed << "feedthrough = " << (double)calculate_feedthrough() << endl;
     output << fixed << "x_max = " << (double)get_x_max() << endl;
@@ -1199,6 +1468,34 @@ string Floorplanner::write_report_string(double totaltime){
     return output.str();
 }
 
+//void Floorplanner::write_report(double totaltime,const string& output_path){
+void Floorplanner::write_report(double totaltime,const string& output_path){
+    fstream output;
+    output.open(output_path, ios::out);
+ //   cout << 2.1 << endl;
+    get_all_nodes_coordinate();
+ //   cout << 2.2 << endl;
+    output << fixed << "wirelength = " << (double)SA_HPWL() << endl;
+    output << fixed << "area = " << (double)calculate_area() << endl;
+    output << fixed << "feedthrough = " << (double)calculate_feedthrough() << endl;
+    output << fixed << "x_max = " << (double)get_x_max() << endl;
+    output << fixed << "y_max = " << (double)get_y_max() << endl;
+    output << fixed << "cost = " << (double)calculate_cost() << endl;
+    output << fixed << "totaltime = " << (double)totaltime << endl;
+  //  cout << 2.3 << endl;
+    for(size_t  i=0; i<node_list.size(); i++){
+        auto node = node_list[i];
+        auto block = name2blk[node->_name];
+
+        output<<node->_name<<" "
+            <<name2blk[node->_name]->_x<<" "<<name2blk[node->_name]->_y<<" "
+            <<name2blk[node->_name]->_x+block->_w<<" "<<name2blk[node->_name]->_y+block->_h << " "
+            <<name2blk[node->_name]->layer << " "
+            <<name2blk[node->_name]->order << " " << name2blk[node->_name]->left << "  " <<name2blk[node->_name]->right
+            <<endl;
+    }
+    output.close();
+}
 //
 //void Floorplanner::write_report(){
 //
@@ -1439,8 +1736,6 @@ void Floorplanner::revert_move_tree(Node* original_parent, int is_original_left,
 
 
 
-
-
 vector<int> Floorplanner::get_subtree_node_indices(int node_idx){
     vector<int> subtree_node_indices;
     map<string,int> name2idx = get_name2idx();
@@ -1461,7 +1756,6 @@ void Floorplanner::get_subtree_node_indices__(int node_idx, vector<int>& subtree
         get_subtree_node_indices__(name2idx[child->_name] , subtree_node_indices, name2idx);
     }
 }
-
 
 
 int Floorplanner::is_adjacent(Block* b1, Block* b2){
